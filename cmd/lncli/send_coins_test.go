@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -61,21 +62,21 @@ func TestSendCoins_Usage(t *testing.T) {
 func TestSendCoins_NoAddr(t *testing.T) {
 	TestCommandValidationError(t, runSendCoins,
 		[]string{"--amt", PushAmount},
-		ErrMissingAddress)
+		&cmd.MissingArgError{"addr"})
 }
 
 // Amt is required.
 func TestSendCoins_NoAmt(t *testing.T) {
 	TestCommandValidationError(t, runSendCoins,
 		[]string{BitcoinAddress},
-		ErrMissingAmount)
+		&cmd.MissingArgError{"amt"})
 }
 
 // Amt must be an integer.
 func TestSendCoins_BadAmtArg(t *testing.T) {
 	TestCommandTextInValidationError(t, runSendCoins,
 		[]string{BitcoinAddress, "BadAmt"},
-		"unable to decode amount:")
+		"unable to parse amt")
 }
 
 // Amt must be an integer.

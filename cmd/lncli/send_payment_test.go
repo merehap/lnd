@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/stretchr/testify/require"
 )
@@ -55,34 +56,31 @@ func TestSendPayment_StreamRecvError(t *testing.T) {
 
 // Dest, Amt, and PaymentHash can be specified as non-flag args.
 func TestSendPayment_Dest_Amt_PaymentHash(t *testing.T) {
-	stream := NewSendPaymentStream(nil, nil)
-	client := NewSendPaymentLightningClient(&stream)
-	_, err := runSendPayment(&client, []string{
-		Dest, PushAmount, PaymentHash})
-
-	// Bug: No error should be returned here.
-	// The payment_hash argument is not properly consumed,
-	// causing final_cltv_delta to try to consume the payment_hash
-	// as its own value, rather than consuming the next value.
-	// TODO(merehap): Remove this line and uncomment the following lines.
-	require.Error(t, err)
-	//require.NoError(t, err)
-	//require.Equal(t, SendPaymentResponse, resp)
-	//require.Equal(t, expectedPaymentSendRequest(), stream.CapturedSendRequest)
+	testErrorlessSendPayment(t,
+		[]string{
+			Dest,
+			PushAmount,
+			PaymentHash},
+		&lnrpc.SendRequest{
+			Dest:        DestBytes,
+			PaymentHash: PaymentHashBytes,
+			Amt:         PushAmountInt})
 }
 
 // Dest, Amt, PaymentHash, and FinalCltvDelta can be specified as non-flag args.
 func TestSendPayment_Dest_Amt_PaymentHash_FinalCltvDelta(t *testing.T) {
-	stream := NewSendPaymentStream(nil, nil)
-	client := NewSendPaymentLightningClient(&stream)
-	_, err := runSendPayment(&client, []string{
-		Dest, PushAmount, PaymentHash, FinalCltvDelta})
 
-	// TODO(merehap): See TestSendPayment_Dest_Amt_PaymentHash
-	require.Error(t, err)
-	//require.NoError(t, err)
-	//require.Equal(t, SendPaymentResponse, resp)
-	//require.Equal(t, expectedPaymentSendRequest(), stream.CapturedSendRequest)
+	testErrorlessSendPayment(t,
+		[]string{
+			Dest,
+			PushAmount,
+			PaymentHash,
+			FinalCltvDelta},
+		&lnrpc.SendRequest{
+			Dest:           DestBytes,
+			PaymentHash:    PaymentHashBytes,
+			Amt:            PushAmountInt,
+			FinalCltvDelta: FinalCltvDeltaInt})
 }
 
 // FinalCltvDelta can be specified as a stand-alone non-flag arg.
@@ -169,14 +167,14 @@ func TestSendPayment_AllFlags(t *testing.T) {
 func TestSendPayment_NoDest(t *testing.T) {
 	TestCommandValidationError(t, runSendPayment,
 		[]string{"--payment_hash", PaymentHash},
-		ErrMissingDestinationTxid)
+		&cmd.MissingArgError{"dest"})
 }
 
 // PaymentHash must be specified if PayReq isn't.
 func TestSendPayment_NoPaymentHash(t *testing.T) {
 	TestCommandValidationError(t, runSendPayment,
 		[]string{"--dest", Dest},
-		ErrMissingPaymentHash)
+		&cmd.MissingArgError{"payment_hash"})
 }
 
 // Dest must be specified in a hexadecimal format.
@@ -197,7 +195,7 @@ func TestSendPayment_BadHexLengthDest(t *testing.T) {
 func TestSendPayment_BadAmt(t *testing.T) {
 	TestCommandTextInValidationError(t, runSendPayment,
 		[]string{Dest, "BadAmount", "--payment_hash", PaymentHash},
-		"unable to decode payment amount")
+		"unable to parse amt")
 }
 
 // Amts must be numbers.

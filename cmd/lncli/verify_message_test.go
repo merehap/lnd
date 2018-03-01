@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -38,13 +39,13 @@ func TestVerifyMessage_SigFlag(t *testing.T) {
 func TestVerifyMessage_NoMsg(t *testing.T) {
 	TestCommandValidationError(t, runVerifyMessage,
 		[]string{"--sig", "Signature"},
-		ErrMissingMessage)
+		&cmd.MissingArgError{"msg"})
 }
 
 func TestVerifyMessage_NoSig(t *testing.T) {
 	TestCommandValidationError(t, runVerifyMessage,
 		[]string{"--msg", "Message To Verify"},
-		ErrMissingSignature)
+		&cmd.MissingArgError{"sig"})
 }
 
 func TestVerifyMessage_RPCError(t *testing.T) {

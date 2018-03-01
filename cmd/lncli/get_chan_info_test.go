@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -33,12 +34,10 @@ func TestGetChanInfo_ChanIdFlag(t *testing.T) {
 		expectedGetChanInfoResponse)
 }
 
-// Bug: Error occurs but then is completely ignored (nothing is printed),
-// and then the function proceeds as if there was no error.
 func TestGetChanInfo_BadChanId(t *testing.T) {
-	TestCommandTextInResponse(t, runGetChanInfo,
+	TestCommandTextInValidationError(t, runGetChanInfo,
 		[]string{"BadChanId"},
-		expectedGetChanInfoResponse)
+		"unable to parse chan_id")
 }
 
 func TestGetChanInfo_BadChanIdFlag(t *testing.T) {
@@ -50,7 +49,7 @@ func TestGetChanInfo_BadChanIdFlag(t *testing.T) {
 func TestGetChanInfo_MissingChanId(t *testing.T) {
 	TestCommandValidationError(t, runGetChanInfo,
 		[]string{},
-		ErrMissingChanID)
+		&cmd.MissingArgError{"chan_id"})
 }
 
 func TestGetChanInfo_RPCError(t *testing.T) {

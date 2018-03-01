@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -37,7 +38,7 @@ func TestDecodePayReq_PayReqFlag(t *testing.T) {
 func TestDecodePayReq_NoPayReq(t *testing.T) {
 	TestCommandValidationError(t, runDecodePayReq,
 		[]string{},
-		ErrMissingPayReq)
+		&cmd.MissingArgError{"pay_req"})
 }
 
 func TestDecodePayReq_RPCError(t *testing.T) {

@@ -17,6 +17,7 @@ import (
 	"github.com/awalterschulze/gographviz"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
 	"github.com/roasbeef/btcutil"
@@ -27,69 +28,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// TODO(roasbeef): cli logic for supporting both positional and unix style
-// arguments.
-
 // TODO(roasbeef): expose all fee conf targets
 
 var (
 	// ErrBadAddressFormat occurs if a user provides a bad LightningAddress.
 	ErrBadAddressFormat = fmt.Errorf(
 		"target address expected in format: pubkey@host:port")
-	// ErrMissingPubKey is used when the user fails to supply a pubkey.
-	ErrMissingPubKey = fmt.Errorf("pub_key argument missing")
-	// ErrMissingPeerSpecifiers occurs if neither peer_id nor node_key
-	// are specified.
-	ErrMissingPeerSpecifiers = fmt.Errorf("node id argument missing")
-	// ErrMissingLocalAmount occurs if the local_amt argument is omitted.
-	ErrMissingLocalAmount = fmt.Errorf("local amt argument missing")
-
-	// ErrMissingFundingTxid occurs if the funding_txid argument is omitted.
-	ErrMissingFundingTxid = fmt.Errorf("funding txid argument missing")
-
-	// ErrMissingPayReq occurs if the pay_req argument is omitted.
-	ErrMissingPayReq = fmt.Errorf("pay_req argument missing")
-
-	// ErrMissingDestinationTxid occurs if the dest argument is omitted.
-	ErrMissingDestinationTxid = fmt.Errorf("destination txid argument missing")
-
-	// ErrMissingPaymentHash occurs if the payemtn hash is omitted.
-	ErrMissingPaymentHash = fmt.Errorf("payment hash argument missing")
 
 	// ErrUnnecessaryArgumentForDebugSend if unnecessary args are specified
 	// on a debug send.
 	ErrUnnecessaryArgumentForDebugSend = fmt.Errorf("do not provide a payment hash with debug send")
 
-	// ErrMissingAddress occurs if address is omitted.
-	ErrMissingAddress = fmt.Errorf("Address argument missing")
-	// ErrMissingAmount occurs if amt is omitted.
-	ErrMissingAmount = fmt.Errorf("Amount argument missing")
-
 	// ErrMultipleFeeArgs occurs if multiple conflicting ways to specify
 	// fees were provided.
 	ErrMultipleFeeArgs = fmt.Errorf(
 		"either conf_target or sat_per_byte should be set, but not both")
-
-	// ErrMissingRhash occurs if the rhash is omitted.
-	ErrMissingRhash = fmt.Errorf("rhash argument missing")
-
-	// ErrMissingChanID occurs if the chan_id is omitted.
-	ErrMissingChanID = fmt.Errorf("chan_id argument missing")
-
-	// ErrMissingDest occurs if the dest is omitted.
-	ErrMissingDest = fmt.Errorf("dest argument missing")
-
-	// ErrMissingMessage occurs if the msg is omitted.
-	ErrMissingMessage = fmt.Errorf("msg argument missing")
-	// ErrMissingSignature Signature occurs if the sig is omitted.
-	ErrMissingSignature = fmt.Errorf("signature argument missing")
-
-	// ErrMissingBaseFeeMsat occurs if the base_fee_msat is omitted.
-	ErrMissingBaseFeeMsat = fmt.Errorf("base_fee_msat argument missing")
-	// ErrMissingFeeRate occurs if the fee_rate is omitted.
-	ErrMissingFeeRate = fmt.Errorf("fee_rate argument missing")
-	// ErrMissingTimeLockDelta occurs if the time_lock_delta is omitted.
-	ErrMissingTimeLockDelta = fmt.Errorf("time_lock_delta argument missing")
 
 	// ErrBadChanPointFormat occurs if the chan_point was not in the correct format.
 	ErrBadChanPointFormat = fmt.Errorf("expecting chan_point to be in format of: txid:index")
@@ -271,7 +224,6 @@ func sendCoins(
 		amt  int64
 		err  error
 	)
-	args := ctx.Args()
 
 	if ctx.NArg() == 0 && ctx.NumFlags() == 0 {
 		cli.ShowCommandHelp(ctx, "sendcoins")
@@ -282,27 +234,15 @@ func sendCoins(
 		return ErrMultipleFeeArgs
 	}
 
-	switch {
-	case ctx.IsSet("addr"):
-		addr = ctx.String("addr")
-	case args.Present():
-		addr = args.First()
-		args = args.Tail()
-	default:
-		return ErrMissingAddress
-	}
-
-	switch {
-	case ctx.IsSet("amt"):
-		amt = ctx.Int64("amt")
-	case args.Present():
-		amt, err = strconv.ParseInt(args.First(), 10, 64)
-	default:
-		return ErrMissingAmount
-	}
-
+	ext := cmd.NewArgExtractor(ctx)
+	addr, err = ext.StringArg("addr")
 	if err != nil {
-		return fmt.Errorf("unable to decode amount: %v", err)
+		return err
+	}
+
+	amt, err = ext.Int64Arg("amt")
+	if err != nil {
+		return err
 	}
 
 	ctxb := context.Background()
@@ -441,14 +381,10 @@ func disconnectPeer(
 
 	ctxb := context.Background()
 
-	var pubKey string
-	switch {
-	case ctx.IsSet("node_key"):
-		pubKey = ctx.String("node_key")
-	case ctx.Args().Present():
-		pubKey = ctx.Args().First()
-	default:
-		return ErrMissingPubKey
+	ext := cmd.NewArgExtractor(ctx)
+	pubKey, err := ext.StringArg("node_key")
+	if err != nil {
+		return err
 	}
 
 	req := &lnrpc.DisconnectPeerRequest{
@@ -541,7 +477,6 @@ func openChannel(
 	// TODO(roasbeef): add deadline to context
 	ctxb := context.Background()
 
-	args := ctx.Args()
 	var err error
 
 	// Show command help if no arguments provided
@@ -556,23 +491,10 @@ func openChannel(
 		MinHtlcMsat: ctx.Int64("min_htlc_msat"),
 	}
 
-	switch {
-	case ctx.IsSet("node_key"):
-		nodePubHex, err := hex.DecodeString(ctx.String("node_key"))
-		if err != nil {
-			return fmt.Errorf("unable to decode node public key: %v", err)
-		}
-		req.NodePubkey = nodePubHex
-
-	case args.Present():
-		nodePubHex, err := hex.DecodeString(args.First())
-		if err != nil {
-			return fmt.Errorf("unable to decode node public key: %v", err)
-		}
-		args = args.Tail()
-		req.NodePubkey = nodePubHex
-	default:
-		return ErrMissingPeerSpecifiers
+	ext := cmd.NewArgExtractor(ctx)
+	req.NodePubkey, err = ext.HexArg("node_key")
+	if err != nil {
+		return err
 	}
 
 	// As soon as we can confirm that the node's node_key was set, rather
@@ -598,26 +520,14 @@ func openChannel(
 		}
 	}
 
-	switch {
-	case ctx.IsSet("local_amt"):
-		req.LocalFundingAmount = int64(ctx.Int("local_amt"))
-	case args.Present():
-		req.LocalFundingAmount, err = strconv.ParseInt(args.First(), 10, 64)
-		if err != nil {
-			return fmt.Errorf("unable to decode local amt: %v", err)
-		}
-		args = args.Tail()
-	default:
-		return ErrMissingLocalAmount
+	req.LocalFundingAmount, err = ext.Int64Arg("local_amt")
+	if err != nil {
+		return err
 	}
 
-	if ctx.IsSet("push_amt") {
-		req.PushSat = int64(ctx.Int("push_amt"))
-	} else if args.Present() {
-		req.PushSat, err = strconv.ParseInt(args.First(), 10, 64)
-		if err != nil {
-			return fmt.Errorf("unable to decode push amt: %v", err)
-		}
+	req.PushSat, err = ext.Int64ArgWithDefault("push_amt", 0)
+	if err != nil {
+		return err
 	}
 
 	req.Private = ctx.Bool("private")
@@ -753,12 +663,6 @@ func closeChannel(
 
 	ctxb := context.Background()
 
-	args := ctx.Args()
-	var (
-		txid string
-		err  error
-	)
-
 	// Show command help if no arguments provided
 	if ctx.NArg() == 0 && ctx.NumFlags() == 0 {
 		cli.ShowCommandHelp(ctx, "closechannel")
@@ -773,32 +677,22 @@ func closeChannel(
 		SatPerByte:   ctx.Int64("sat_per_byte"),
 	}
 
-	switch {
-	case ctx.IsSet("funding_txid"):
-		txid = ctx.String("funding_txid")
-	case args.Present():
-		txid = args.First()
-		args = args.Tail()
-	default:
-		return ErrMissingFundingTxid
+	ext := cmd.NewArgExtractor(ctx)
+	txid, err := ext.StringArg("funding_txid")
+	if err != nil {
+		return err
 	}
 
 	req.ChannelPoint.FundingTxid = &lnrpc.ChannelPoint_FundingTxidStr{
 		FundingTxidStr: txid,
 	}
 
-	switch {
-	case ctx.IsSet("output_index"):
-		req.ChannelPoint.OutputIndex = uint32(ctx.Int("output_index"))
-	case args.Present():
-		index, err := strconv.ParseInt(args.First(), 10, 32)
-		if err != nil {
-			return fmt.Errorf("unable to decode output index: %v", err)
-		}
-		req.ChannelPoint.OutputIndex = uint32(index)
-	default:
-		req.ChannelPoint.OutputIndex = 0
+	index, err := ext.Int64ArgWithDefault("output_index", 0)
+	if err != nil {
+		return err
 	}
+
+	req.ChannelPoint.OutputIndex = uint32(index)
 
 	stream, err := client.CloseChannel(ctxb, req)
 	if err != nil {
@@ -1146,23 +1040,8 @@ func sendPayment(
 			Amt:            ctx.Int64("amt"),
 		}
 	} else {
-		args := ctx.Args()
-
-		var (
-			destNode []byte
-			err      error
-			amount   int64
-		)
-
-		switch {
-		case ctx.IsSet("dest"):
-			destNode, err = hex.DecodeString(ctx.String("dest"))
-		case args.Present():
-			destNode, err = hex.DecodeString(args.First())
-			args = args.Tail()
-		default:
-			return ErrMissingDestinationTxid
-		}
+		ext := cmd.NewArgExtractor(ctx)
+		destNode, err := ext.HexArg("dest")
 		if err != nil {
 			return err
 		}
@@ -1172,14 +1051,9 @@ func sendPayment(
 				"instead: %v", len(destNode))
 		}
 
-		if ctx.IsSet("amt") {
-			amount = ctx.Int64("amt")
-		} else if args.Present() {
-			amount, err = strconv.ParseInt(args.First(), 10, 64)
-			args = args.Tail()
-			if err != nil {
-				return fmt.Errorf("unable to decode payment amount: %v", err)
-			}
+		amount, err := ext.Int64ArgWithDefault("amt", 0)
+		if err != nil {
+			return err
 		}
 
 		req = &lnrpc.SendRequest{
@@ -1187,40 +1061,31 @@ func sendPayment(
 			Amt:  amount,
 		}
 
-		if ctx.Bool("debug_send") && (ctx.IsSet("payment_hash") || args.Present()) {
+		if ctx.Bool("debug_send") &&
+			(ctx.IsSet("payment_hash") || ext.PositionalArgsPresent()) {
+
 			return ErrUnnecessaryArgumentForDebugSend
 		} else if !ctx.Bool("debug_send") {
 			var rHash []byte
 
-			switch {
-			case ctx.IsSet("payment_hash"):
-				rHash, err = hex.DecodeString(ctx.String("payment_hash"))
-			case args.Present():
-				rHash, err = hex.DecodeString(args.First())
-				// TODO(merehap): Bug fix. Add "args = args.Tail()" here.
-			default:
-				return ErrMissingPaymentHash
-			}
-
+			rHash, err = ext.HexArg("payment_hash")
 			if err != nil {
 				return err
 			}
+
 			if len(rHash) != 32 {
 				return fmt.Errorf("payment hash must be exactly 32 "+
 					"bytes, is instead %v", len(rHash))
 			}
 			req.PaymentHash = rHash
 
-			switch {
-			case ctx.IsSet("final_cltv_delta"):
-				req.FinalCltvDelta = int32(ctx.Int64("final_cltv_delta"))
-			case args.Present():
-				delta, err := strconv.ParseInt(args.First(), 10, 64)
-				if err != nil {
-					return err
-				}
-				req.FinalCltvDelta = int32(delta)
+			var finalCltvDelta int64
+			finalCltvDelta, err = ext.Int64ArgWithDefault("final_cltv_delta", 0)
+			if err != nil {
+				return err
 			}
+
+			req.FinalCltvDelta = int32(finalCltvDelta)
 		}
 	}
 
@@ -1282,17 +1147,11 @@ var payInvoiceCommand = cli.Command{
 
 func payInvoice(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
-	args := ctx.Args()
 
-	var payReq string
-
-	switch {
-	case ctx.IsSet("pay_req"):
-		payReq = ctx.String("pay_req")
-	case args.Present():
-		payReq = args.First()
-	default:
-		return ErrMissingPayReq
+	ext := cmd.NewArgExtractor(ctx)
+	payReq, err := ext.StringArg("pay_req")
+	if err != nil {
+		return err
 	}
 
 	req := &lnrpc.SendRequest{
@@ -1364,32 +1223,17 @@ func addInvoice(
 		preimage []byte
 		descHash []byte
 		receipt  []byte
-		amt      int64
-		err      error
 	)
 
-	args := ctx.Args()
-
-	switch {
-	case ctx.IsSet("amt"):
-		amt = ctx.Int64("amt")
-	case args.Present():
-		amt, err = strconv.ParseInt(args.First(), 10, 64)
-		args = args.Tail()
-		if err != nil {
-			return fmt.Errorf("unable to decode amt argument: %v", err)
-		}
-	}
-
-	switch {
-	case ctx.IsSet("preimage"):
-		preimage, err = hex.DecodeString(ctx.String("preimage"))
-	case args.Present():
-		preimage, err = hex.DecodeString(args.First())
-	}
-
+	ext := cmd.NewArgExtractor(ctx)
+	amt, err := ext.Int64Arg("amt")
 	if err != nil {
-		return fmt.Errorf("unable to parse preimage: %v", err)
+		return err
+	}
+
+	preimage, err = ext.HexArg("preimage")
+	if err != nil {
+		return err
 	}
 
 	descHash, err = hex.DecodeString(ctx.String("description_hash"))
@@ -1445,22 +1289,10 @@ var lookupInvoiceCommand = cli.Command{
 func lookupInvoice(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
-	var (
-		rHash []byte
-		err   error
-	)
-
-	switch {
-	case ctx.IsSet("rhash"):
-		rHash, err = hex.DecodeString(ctx.String("rhash"))
-	case ctx.Args().Present():
-		rHash, err = hex.DecodeString(ctx.Args().First())
-	default:
-		return ErrMissingRhash
-	}
-
+	ext := cmd.NewArgExtractor(ctx)
+	rHash, err := ext.HexArg("rhash")
 	if err != nil {
-		return fmt.Errorf("unable to decode rhash argument: %v", err)
+		return err
 	}
 
 	req := &lnrpc.PaymentHash{
@@ -1741,18 +1573,10 @@ func getChanInfo(
 
 	ctxb := context.Background()
 
-	var (
-		chanID int64
-		err    error
-	)
-
-	switch {
-	case ctx.IsSet("chan_id"):
-		chanID = ctx.Int64("chan_id")
-	case ctx.Args().Present():
-		chanID, err = strconv.ParseInt(ctx.Args().First(), 10, 64)
-	default:
-		return ErrMissingChanID
+	ext := cmd.NewArgExtractor(ctx)
+	chanID, err := ext.Int64Arg("chan_id")
+	if err != nil {
+		return err
 	}
 
 	req := &lnrpc.ChanInfoRequest{
@@ -1788,16 +1612,10 @@ func getNodeInfo(
 
 	ctxb := context.Background()
 
-	args := ctx.Args()
-
-	var pubKey string
-	switch {
-	case ctx.IsSet("pub_key"):
-		pubKey = ctx.String("pub_key")
-	case args.Present():
-		pubKey = args.First()
-	default:
-		return ErrMissingPubKey
+	ext := cmd.NewArgExtractor(ctx)
+	pubKey, err := ext.StringArg("pub_key")
+	if err != nil {
+		return err
 	}
 
 	req := &lnrpc.NodeInfoRequest{
@@ -1842,34 +1660,16 @@ func queryRoutes(
 
 	ctxb := context.Background()
 
-	var (
-		dest string
-		amt  int64
-		err  error
-	)
-
-	args := ctx.Args()
-
-	switch {
-	case ctx.IsSet("dest"):
-		dest = ctx.String("dest")
-	case args.Present():
-		dest = args.First()
-		args = args.Tail()
-	default:
-		return ErrMissingDest
+	ext := cmd.NewArgExtractor(ctx)
+	dest, err := ext.StringArg("dest")
+	if err != nil {
+		return err
 	}
 
-	switch {
-	case ctx.IsSet("amt"):
-		amt = ctx.Int64("amt")
-	case args.Present():
-		amt, err = strconv.ParseInt(args.First(), 10, 64)
-		if err != nil {
-			return fmt.Errorf("unable to decode amt argument: %v", err)
-		}
-	default:
-		return ErrMissingAmount
+	var amt int64
+	amt, err = ext.Int64Arg("amt")
+	if err != nil {
+		return err
 	}
 
 	req := &lnrpc.QueryRoutesRequest{
@@ -1968,15 +1768,10 @@ func decodePayReq(
 
 	ctxb := context.Background()
 
-	var payreq string
-
-	switch {
-	case ctx.IsSet("pay_req"):
-		payreq = ctx.String("pay_req")
-	case ctx.Args().Present():
-		payreq = ctx.Args().First()
-	default:
-		return ErrMissingPayReq
+	ext := cmd.NewArgExtractor(ctx)
+	payreq, err := ext.StringArg("pay_req")
+	if err != nil {
+		return err
 	}
 
 	resp, err := client.DecodePayReq(ctxb, &lnrpc.PayReqString{
@@ -2057,18 +1852,14 @@ func signMessage(
 
 	ctxb := context.Background()
 
-	var msg []byte
-
-	switch {
-	case ctx.IsSet("msg"):
-		msg = []byte(ctx.String("msg"))
-	case ctx.Args().Present():
-		msg = []byte(ctx.Args().First())
-	default:
-		return ErrMissingMessage
+	ext := cmd.NewArgExtractor(ctx)
+	msg, err := ext.StringArg("msg")
+	if err != nil {
+		return err
 	}
 
-	resp, err := client.SignMessage(ctxb, &lnrpc.SignMessageRequest{Msg: msg})
+	resp, err := client.SignMessage(
+		ctxb, &lnrpc.SignMessageRequest{Msg: []byte(msg)})
 	if err != nil {
 		return err
 	}
@@ -2105,33 +1896,19 @@ func verifyMessage(
 
 	ctxb := context.Background()
 
-	var (
-		msg []byte
-		sig string
-	)
-
-	args := ctx.Args()
-
-	switch {
-	case ctx.IsSet("msg"):
-		msg = []byte(ctx.String("msg"))
-	case args.Present():
-		msg = []byte(ctx.Args().First())
-		args = args.Tail()
-	default:
-		return ErrMissingMessage
+	ext := cmd.NewArgExtractor(ctx)
+	msg, err := ext.StringArg("msg")
+	if err != nil {
+		return err
 	}
 
-	switch {
-	case ctx.IsSet("sig"):
-		sig = ctx.String("sig")
-	case args.Present():
-		sig = args.First()
-	default:
-		return ErrMissingSignature
+	var sig string
+	sig, err = ext.StringArg("sig")
+	if err != nil {
+		return err
 	}
 
-	req := &lnrpc.VerifyMessageRequest{Msg: msg, Signature: sig}
+	req := &lnrpc.VerifyMessageRequest{Msg: []byte(msg), Signature: sig}
 	resp, err := client.VerifyMessage(ctxb, req)
 	if err != nil {
 		return err
@@ -2213,48 +1990,21 @@ func updateChannelPolicy(
 		timeLockDelta int64
 		err           error
 	)
-	args := ctx.Args()
 
-	switch {
-	case ctx.IsSet("base_fee_msat"):
-		baseFee = ctx.Int64("base_fee_msat")
-	case args.Present():
-		baseFee, err = strconv.ParseInt(args.First(), 10, 64)
-		if err != nil {
-			return fmt.Errorf("unable to decode base_fee_msat: %v", err)
-		}
-		args = args.Tail()
-	default:
-		return ErrMissingBaseFeeMsat
+	ext := cmd.NewArgExtractor(ctx)
+	baseFee, err = ext.Int64Arg("base_fee_msat")
+	if err != nil {
+		return err
 	}
 
-	switch {
-	case ctx.IsSet("fee_rate"):
-		feeRate = ctx.Float64("fee_rate")
-	case args.Present():
-		feeRate, err = strconv.ParseFloat(args.First(), 64)
-		if err != nil {
-			return fmt.Errorf("unable to decode fee_rate: %v", err)
-		}
-
-		args = args.Tail()
-	default:
-		return ErrMissingFeeRate
+	feeRate, err = ext.Float64Arg("fee_rate")
+	if err != nil {
+		return err
 	}
 
-	switch {
-	case ctx.IsSet("time_lock_delta"):
-		timeLockDelta = ctx.Int64("time_lock_delta")
-	case args.Present():
-		timeLockDelta, err = strconv.ParseInt(args.First(), 10, 64)
-		if err != nil {
-			return fmt.Errorf("unable to decode time_lock_delta: %v",
-				err)
-		}
-
-		args = args.Tail()
-	default:
-		return ErrMissingTimeLockDelta
+	timeLockDelta, err = ext.Int64Arg("time_lock_delta")
+	if err != nil {
+		return err
 	}
 
 	var (
@@ -2262,12 +2012,7 @@ func updateChannelPolicy(
 		chanPointStr string
 	)
 
-	switch {
-	case ctx.IsSet("chan_point"):
-		chanPointStr = ctx.String("chan_point")
-	case args.Present():
-		chanPointStr = args.First()
-	}
+	chanPointStr = ext.StringArgWithDefault("chan_point", "")
 
 	if chanPointStr != "" {
 		split := strings.Split(chanPointStr, ":")

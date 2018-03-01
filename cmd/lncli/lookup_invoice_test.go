@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -43,19 +44,19 @@ func TestLookupInvoice_RhashFlag(t *testing.T) {
 func TestLookupInvoice_BadRhash(t *testing.T) {
 	TestCommandTextInValidationError(t, runLookupInvoice,
 		[]string{"BadRhash"},
-		"unable to decode rhash argument")
+		"unable to parse rhash")
 }
 
 func TestLookupInvoice_BadRhashFlag(t *testing.T) {
 	TestCommandTextInValidationError(t, runLookupInvoice,
 		[]string{"BadRhash"},
-		"unable to decode rhash argument")
+		"unable to parse rhash")
 }
 
 func TestLookupInvoice_MissingRhash(t *testing.T) {
 	TestCommandValidationError(t, runLookupInvoice,
 		[]string{},
-		ErrMissingRhash)
+		&cmd.MissingArgError{"rhash"})
 }
 
 func TestLookupInvoice_RPCError(t *testing.T) {

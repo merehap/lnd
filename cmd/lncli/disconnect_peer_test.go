@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -29,7 +30,7 @@ func TestDisconnectPeer_NodeKeyFlag(t *testing.T) {
 func TestDisconnectPeer_NoPubkey(t *testing.T) {
 	TestCommandValidationError(t, runDisconnectPeer,
 		[]string{},
-		ErrMissingPubKey)
+		&cmd.MissingArgError{"node_key"})
 }
 
 // disconnectPeer bubbles up the error if the LightningClient fails to connect.

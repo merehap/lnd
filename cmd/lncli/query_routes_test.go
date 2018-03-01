@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -39,13 +40,13 @@ func TestQueryRoutes_AmtFlag(t *testing.T) {
 func TestQueryRoutes_NoDest(t *testing.T) {
 	TestCommandValidationError(t, runQueryRoutes,
 		[]string{"--amt", PushAmount},
-		ErrMissingDest)
+		&cmd.MissingArgError{"dest"})
 }
 
 func TestQueryRoutes_NoAmt(t *testing.T) {
 	TestCommandValidationError(t, runQueryRoutes,
 		[]string{"--dest", PubKey},
-		ErrMissingAmount)
+		&cmd.MissingArgError{"amt"})
 }
 
 func TestQueryRoutes_RPCError(t *testing.T) {
@@ -58,7 +59,7 @@ func TestQueryRoutes_RPCError(t *testing.T) {
 func TestQueryRoutes_BadAmt(t *testing.T) {
 	TestCommandTextInValidationError(t, runQueryRoutes,
 		[]string{PubKey, "BadPushAmount"},
-		"unable to decode amt argument:")
+		"unable to parse amt")
 }
 
 func TestQueryRoutes_BadAmtFlag(t *testing.T) {

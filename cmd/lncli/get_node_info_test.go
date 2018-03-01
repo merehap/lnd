@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -45,7 +46,7 @@ func TestGetNodeInfo_BadChanIdFlag(t *testing.T) {
 func TestGetNodeInfo_MissingChanId(t *testing.T) {
 	TestCommandValidationError(t, runGetNodeInfo,
 		[]string{},
-		ErrMissingPubKey)
+		&cmd.MissingArgError{"pub_key"})
 }
 
 func TestGetNodeInfo_RPCError(t *testing.T) {

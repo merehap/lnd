@@ -68,7 +68,7 @@ func TestAddInvoice_BadAmt(t *testing.T) {
 			"--preimage", Preimage,
 			"--description_hash", DescriptionHash,
 			"--receipt", Receipt},
-		"unable to decode amt argument")
+		"unable to parse amt")
 }
 
 func TestAddInvoice_BadAmtFlag(t *testing.T) {
@@ -88,7 +88,7 @@ func TestAddInvoice_NonHexPreimage(t *testing.T) {
 			"--amt", PushAmount,
 			"--description_hash", DescriptionHash,
 			"--receipt", Receipt},
-		"unable to parse preimage:")
+		"unable to parse preimage")
 }
 
 func TestAddInvoice_NonHexPreimageFlag(t *testing.T) {
@@ -98,7 +98,7 @@ func TestAddInvoice_NonHexPreimageFlag(t *testing.T) {
 			"--preimage", "NonHexPreimage",
 			"--description_hash", DescriptionHash,
 			"--receipt", Receipt},
-		"unable to parse preimage:")
+		"unable to parse preimage")
 }
 
 func TestAddInvoice_NonHexDescriptionHash(t *testing.T) {
@@ -108,7 +108,7 @@ func TestAddInvoice_NonHexDescriptionHash(t *testing.T) {
 			"--preimage", Preimage,
 			"--description_hash", "BadDescriptionHash",
 			"--receipt", Receipt},
-		"unable to parse description_hash:")
+		"unable to parse description_hash")
 }
 
 func TestAddInvoice_NonHexReceipt(t *testing.T) {
@@ -118,7 +118,7 @@ func TestAddInvoice_NonHexReceipt(t *testing.T) {
 			"--preimage", Preimage,
 			"--description_hash", DescriptionHash,
 			"--receipt", "BadReceipt"},
-		"unable to parse receipt:")
+		"unable to parse receipt")
 }
 
 func TestAddInvoice_BadExpiry(t *testing.T) {

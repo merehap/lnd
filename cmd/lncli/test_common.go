@@ -120,7 +120,7 @@ func RunCommandWithTimeout(
 	args = append([]string{"lncli", commandName}, args...)
 	// A go channel is needed to tell when the command has ended.
 	// Commands that use TestCommandWithTimeout are using it because
-	// they can contain infinitely loops, so they need to be run on a
+	// they can contain infinite loops, so they need to be run on a
 	// separate thread with a timeout.
 	channel := make(chan string, 1)
 	go func() {
@@ -200,7 +200,7 @@ func TestCommandTextInResponse(
 	resp, err := command(&client, args)
 	require.NoError(t, err)
 	require.True(t, strings.Contains(resp, expectedText),
-		fmt.Sprintf("Expected text %s to be present, but it wasn't contained in \n%s\n",
+		fmt.Sprintf("Expected text '%s' to be present, but it wasn't contained in \n'%s'\n",
 			expectedText, resp))
 }
 
@@ -232,7 +232,7 @@ func TestCommandTextInValidationError(
 	require.Error(t, err)
 	require.True(t,
 		strings.Contains(err.Error(), expectedText),
-		fmt.Sprintf("Expected text '%s' to be present, but it wasn't contained in \n%s\n",
+		fmt.Sprintf("Expected text '%s' to be present, but it wasn't contained in \n'%s'\n",
 			expectedText, err.Error()))
 }
 

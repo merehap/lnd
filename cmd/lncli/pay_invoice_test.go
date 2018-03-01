@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/testing"
 	"github.com/stretchr/testify/require"
@@ -33,9 +34,10 @@ func TestPayInvoice_Amt(t *testing.T) {
 
 // PayReq is required.
 func TestPayInvoice_NoPayReq(t *testing.T) {
-	client := lnrpctesting.NewStubLightningClient()
-	_, err := runPayInvoice(&client, []string{})
-	require.Equal(t, ErrMissingPayReq, err)
+	TestCommandValidationError(t,
+		runPayInvoice,
+		[]string{},
+		&cmd.MissingArgError{"pay_req"})
 }
 
 // Errors on initiating a payment should be propagated up.

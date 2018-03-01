@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -30,7 +31,7 @@ func TestSignMessage_MsgFlag(t *testing.T) {
 func TestSignMessage_NoMsg(t *testing.T) {
 	TestCommandValidationError(t, runSignMessage,
 		[]string{},
-		ErrMissingMessage)
+		&cmd.MissingArgError{"msg"})
 }
 
 func TestSignMessage_RPCError(t *testing.T) {

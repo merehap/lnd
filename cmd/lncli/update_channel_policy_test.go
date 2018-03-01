@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -65,7 +66,7 @@ func TestUpdateChannelPolicy_NoBaseFeeMsat(t *testing.T) {
 			"--fee_rate", FeeRate,
 			"--time_lock_delta", TimeLockDelta,
 			"--chan_point", ChanPoint},
-		ErrMissingBaseFeeMsat)
+		&cmd.MissingArgError{"base_fee_msat"})
 }
 
 func TestUpdateChannelPolicy_NoFeeRate(t *testing.T) {
@@ -74,7 +75,7 @@ func TestUpdateChannelPolicy_NoFeeRate(t *testing.T) {
 			"--base_fee_msat", BaseFeeMsat,
 			"--time_lock_delta", TimeLockDelta,
 			"--chan_point", ChanPoint},
-		ErrMissingFeeRate)
+		&cmd.MissingArgError{"fee_rate"})
 }
 
 func TestUpdateChannelPolicy_NoTimeLockDelta(t *testing.T) {
@@ -83,13 +84,13 @@ func TestUpdateChannelPolicy_NoTimeLockDelta(t *testing.T) {
 			"--base_fee_msat", BaseFeeMsat,
 			"--fee_rate", FeeRate,
 			"--chan_point", ChanPoint},
-		ErrMissingTimeLockDelta)
+		&cmd.MissingArgError{"time_lock_delta"})
 }
 
 func TestUpdateChannelPolicy_BadBaseFeeMsat(t *testing.T) {
 	TestCommandTextInValidationError(t, runUpdateChannelPolicy,
 		[]string{"BadBaseFeeMsat", FeeRate, TimeLockDelta, ChanPoint},
-		"unable to decode base_fee_msat:")
+		"unable to parse base_fee_msat")
 }
 
 func TestUpdateChannelPolicy_BadBaseFeeMsatFlag(t *testing.T) {
@@ -101,20 +102,19 @@ func TestUpdateChannelPolicy_BadBaseFeeMsatFlag(t *testing.T) {
 func TestUpdateChannelPolicy_BadFeeRate(t *testing.T) {
 	TestCommandTextInValidationError(t, runUpdateChannelPolicy,
 		[]string{BaseFeeMsat, "BadFeeRate", TimeLockDelta, ChanPoint},
-		"unable to decode fee_rate:")
+		"unable to parse fee_rate")
 }
 
 func TestUpdateChannelPolicy_BadFeeRateFlag(t *testing.T) {
-	TestCommandTextInResponse(t, runUpdateChannelPolicy,
+	TestCommandTextInValidationError(t, runUpdateChannelPolicy,
 		[]string{"--fee_rate", "BadFeeRate", BaseFeeMsat, TimeLockDelta, ChanPoint},
-		// cli's ParseFloat doesn't cause usage to be printed, unlike ParseInt.
-		expectedUpdateChannelPolicyResponse)
+		"unable to parse fee_rate")
 }
 
 func TestUpdateChannelPolicy_BadTimeLockDelta(t *testing.T) {
 	TestCommandTextInValidationError(t, runUpdateChannelPolicy,
 		[]string{BaseFeeMsat, FeeRate, "BadTimeLockDelta", ChanPoint},
-		"unable to decode time_lock_delta:")
+		"unable to parse time_lock_delta")
 }
 
 func TestUpdateChannelPolicy_BadTimeLockDeltaFlag(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/testing"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
@@ -119,28 +120,28 @@ func TestOpenChannel_Help(t *testing.T) {
 func TestOpenChannel_BadPubKeyFromFlag(t *testing.T) {
 	TestCommandTextInValidationError(t, runOpenChannel,
 		[]string{"--node_key", "BadPubKey"},
-		"unable to decode node public key")
+		"unable to parse node_key")
 }
 
 // Reject invalid pubkeys.
 func TestOpenChannel_BadPubKeyFromArg(t *testing.T) {
 	TestCommandTextInValidationError(t, runOpenChannel,
 		[]string{"BadPubKey"},
-		"unable to decode node public key")
+		"unable to parse node_key")
 }
 
 // Either pubkey or peer ID must be specified.
 func TestOpenChannel_NoNodeId(t *testing.T) {
 	TestCommandValidationError(t, runOpenChannel,
 		[]string{"--local_amt", LocalAmount},
-		ErrMissingPeerSpecifiers)
+		&cmd.MissingArgError{"node_key"})
 }
 
 // Reject bad local amounts.
 func TestOpenChannel_BadLocalAmtFromArg(t *testing.T) {
 	TestCommandTextInValidationError(t, runOpenChannel,
 		[]string{PubKey, "InvalidLocalAmount", PushAmount},
-		"unable to decode local amt")
+		"unable to parse local_amt")
 }
 
 // Reject bad local amounts.
@@ -157,14 +158,14 @@ func TestOpenChannel_BadLocalAmtFromFlag(t *testing.T) {
 func TestOpenChannel_NoLocalAmt(t *testing.T) {
 	TestCommandValidationError(t, runOpenChannel,
 		[]string{PubKey, "--push_amt", PushAmount},
-		ErrMissingLocalAmount)
+		&cmd.MissingArgError{"local_amt"})
 }
 
 // Reject bad push amounts.
 func TestOpenChannel_BadPushAmtFromArg(t *testing.T) {
 	TestCommandTextInValidationError(t, runOpenChannel,
 		[]string{PubKey, LocalAmount, "InvalidPushAmount"},
-		"unable to decode push amt")
+		"unable to parse push_amt")
 }
 
 // Reject bad push amounts.

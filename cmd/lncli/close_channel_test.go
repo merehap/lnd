@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 	"github.com/lightningnetwork/lnd/lnrpc/testing"
 	"github.com/roasbeef/btcd/chaincfg/chainhash"
@@ -83,20 +84,18 @@ func TestCloseChannel_TimeLimitFlag(t *testing.T) {
 
 // FundingTxid must be specified.
 func TestCloseChannel_NoFundingTxid(t *testing.T) {
-	client := NewStubCloseClient([]lnrpc.CloseStatusUpdate{}, io.EOF)
-	_, err := runCloseChannel(&client, []string{"--output_index", OutputIndex})
-	require.Error(t, err)
-	require.Equal(t, ErrMissingFundingTxid, err, "Incorrect error returned.")
+	TestCommandValidationError(t,
+		runCloseChannel,
+		[]string{"--output_index", OutputIndex},
+		&cmd.MissingArgError{"funding_txid"})
 }
 
 // OutputIndex must be an integer.
 func TestCloseChannel_BadOutputIndex(t *testing.T) {
-	client := NewStubCloseClient([]lnrpc.CloseStatusUpdate{}, io.EOF)
-	_, err := runCloseChannel(&client, []string{FundingTxidString, "BadOutputIndex"})
-	require.Error(t, err)
-	require.True(t,
-		strings.Contains(err.Error(), "unable to decode output index:"),
-		"Incorrect error message returned.")
+	TestCommandTextInValidationError(t,
+		runCloseChannel,
+		[]string{FundingTxidString, "BadOutputIndex"},
+		"unable to parse output_index")
 }
 
 // Specifying that a call should block has no effect if the first update
