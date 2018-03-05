@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -31,9 +32,9 @@ func TestNewAddress_Pubkey(t *testing.T) {
 }
 
 func TestNewAddress_NoAddressType(t *testing.T) {
-	TestCommandTextInValidationError(t, runNewAddress,
+	TestCommandValidationError(t, runNewAddress,
 		[]string{},
-		"invalid address type")
+		&cmd.MissingArgError{"AddressType"})
 }
 
 func TestNewAddress_BadAddressType(t *testing.T) {

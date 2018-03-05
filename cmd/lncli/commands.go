@@ -149,7 +149,11 @@ var newAddressCommand = cli.Command{
 func newAddress(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
-	stringAddrType := ctx.Args().First()
+	ext := cmd.NewArgExtractor(ctx)
+	stringAddrType, err := ext.StringPositionalArg("AddressType")
+	if err != nil {
+		return err
+	}
 
 	// Map the string encoded address type, to the concrete typed address
 	// type enum. An unrecognized address type will result in an error.
@@ -219,28 +223,23 @@ var sendCoinsCommand = cli.Command{
 func sendCoins(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
-	var (
-		addr string
-		amt  int64
-		err  error
-	)
+	ext := cmd.NewArgExtractor(ctx)
 
-	if ctx.NArg() == 0 && ctx.NumFlags() == 0 {
+	if !ext.ArgsPresent() {
 		cli.ShowCommandHelp(ctx, "sendcoins")
 		return nil
 	}
 
-	if ctx.IsSet("conf_target") && ctx.IsSet("sat_per_byte") {
+	if ext.IsFlagSet("conf_target") && ext.IsFlagSet("sat_per_byte") {
 		return ErrMultipleFeeArgs
 	}
 
-	ext := cmd.NewArgExtractor(ctx)
-	addr, err = ext.StringArg("addr")
+	addr, err := ext.StringArg("addr")
 	if err != nil {
 		return err
 	}
 
-	amt, err = ext.Int64Arg("amt")
+	amt, err := ext.Int64Arg("amt")
 	if err != nil {
 		return err
 	}
@@ -250,8 +249,8 @@ func sendCoins(
 	req := &lnrpc.SendCoinsRequest{
 		Addr:       addr,
 		Amount:     amt,
-		TargetConf: int32(ctx.Int64("conf_target")),
-		SatPerByte: ctx.Int64("sat_per_byte"),
+		TargetConf: int32(ext.Int64Flag("conf_target")),
+		SatPerByte: ext.Int64Flag("sat_per_byte"),
 	}
 	txid, err := client.SendCoins(ctxb, req)
 	if err != nil {
@@ -294,12 +293,18 @@ func sendMany(
 
 	var amountToAddr map[string]int64
 
-	jsonMap := ctx.Args().First()
+	ext := cmd.NewArgExtractor(ctx)
+
+	jsonMap, err := ext.StringPositionalArg("JSON Map")
+	if err != nil {
+		return err
+	}
+
 	if err := json.Unmarshal([]byte(jsonMap), &amountToAddr); err != nil {
 		return err
 	}
 
-	if ctx.IsSet("conf_target") && ctx.IsSet("sat_per_byte") {
+	if ext.IsFlagSet("conf_target") && ext.IsFlagSet("sat_per_byte") {
 		return ErrMultipleFeeArgs
 	}
 
@@ -307,8 +312,8 @@ func sendMany(
 
 	txid, err := client.SendMany(ctxb, &lnrpc.SendManyRequest{
 		AddrToAmount: amountToAddr,
-		TargetConf:   int32(ctx.Int64("conf_target")),
-		SatPerByte:   ctx.Int64("sat_per_byte"),
+		TargetConf:   int32(ext.Int64Flag("conf_target")),
+		SatPerByte:   ext.Int64Flag("sat_per_byte"),
 	})
 	if err != nil {
 		return err
@@ -336,9 +341,13 @@ var connectCommand = cli.Command{
 func connectPeer(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
-	ctxb := context.Background()
+	ext := cmd.NewArgExtractor(ctx)
 
-	targetAddress := ctx.Args().First()
+	targetAddress, err := ext.StringPositionalArg("Target Address")
+	if err != nil {
+		return err
+	}
+
 	splitAddr := strings.Split(targetAddress, "@")
 	if len(splitAddr) != 2 {
 		return ErrBadAddressFormat
@@ -350,10 +359,10 @@ func connectPeer(
 	}
 	req := &lnrpc.ConnectPeerRequest{
 		Addr: addr,
-		Perm: ctx.Bool("perm"),
+		Perm: ext.BoolFlag("perm"),
 	}
 
-	lnid, err := client.ConnectPeer(ctxb, req)
+	lnid, err := client.ConnectPeer(context.Background(), req)
 	if err != nil {
 		return err
 	}
@@ -477,21 +486,21 @@ func openChannel(
 	// TODO(roasbeef): add deadline to context
 	ctxb := context.Background()
 
-	var err error
+	ext := cmd.NewArgExtractor(ctx)
 
 	// Show command help if no arguments provided
-	if ctx.NArg() == 0 && ctx.NumFlags() == 0 {
+	if !ext.ArgsPresent() {
 		cli.ShowCommandHelp(ctx, "openchannel")
 		return nil
 	}
 
 	req := &lnrpc.OpenChannelRequest{
-		TargetConf:  int32(ctx.Int64("conf_target")),
-		SatPerByte:  ctx.Int64("sat_per_byte"),
-		MinHtlcMsat: ctx.Int64("min_htlc_msat"),
+		TargetConf:  int32(ext.Int64Flag("conf_target")),
+		SatPerByte:  ext.Int64Flag("sat_per_byte"),
+		MinHtlcMsat: ext.Int64Flag("min_htlc_msat"),
 	}
 
-	ext := cmd.NewArgExtractor(ctx)
+	var err error
 	req.NodePubkey, err = ext.HexArg("node_key")
 	if err != nil {
 		return err
@@ -500,10 +509,10 @@ func openChannel(
 	// As soon as we can confirm that the node's node_key was set, rather
 	// than the peer_id, we can check if the host:port was also set to
 	// connect to it before opening the channel.
-	if req.NodePubkey != nil && ctx.IsSet("connect") {
+	if req.NodePubkey != nil && ext.IsFlagSet("connect") {
 		addr := &lnrpc.LightningAddress{
 			Pubkey: hex.EncodeToString(req.NodePubkey),
-			Host:   ctx.String("connect"),
+			Host:   ext.StringFlag("connect"),
 		}
 
 		req := &lnrpc.ConnectPeerRequest{
@@ -530,7 +539,7 @@ func openChannel(
 		return err
 	}
 
-	req.Private = ctx.Bool("private")
+	req.Private = ext.BoolFlag("private")
 
 	stream, err := client.OpenChannel(ctxb, req)
 	if err != nil {
@@ -559,7 +568,7 @@ func openChannel(
 			},
 			)
 
-			if !ctx.Bool("block") {
+			if !ext.BoolFlag("block") {
 				return nil
 			}
 
@@ -661,10 +670,10 @@ var closeChannelCommand = cli.Command{
 func closeChannel(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
-	ctxb := context.Background()
+	ext := cmd.NewArgExtractor(ctx)
 
 	// Show command help if no arguments provided
-	if ctx.NArg() == 0 && ctx.NumFlags() == 0 {
+	if !ext.ArgsPresent() {
 		cli.ShowCommandHelp(ctx, "closechannel")
 		return nil
 	}
@@ -672,12 +681,11 @@ func closeChannel(
 	// TODO(roasbeef): implement time deadline within server
 	req := &lnrpc.CloseChannelRequest{
 		ChannelPoint: &lnrpc.ChannelPoint{},
-		Force:        ctx.Bool("force"),
-		TargetConf:   int32(ctx.Int64("conf_target")),
-		SatPerByte:   ctx.Int64("sat_per_byte"),
+		Force:        ext.BoolFlag("force"),
+		TargetConf:   int32(ext.Int64Flag("conf_target")),
+		SatPerByte:   ext.Int64Flag("sat_per_byte"),
 	}
 
-	ext := cmd.NewArgExtractor(ctx)
 	txid, err := ext.StringArg("funding_txid")
 	if err != nil {
 		return err
@@ -694,6 +702,7 @@ func closeChannel(
 
 	req.ChannelPoint.OutputIndex = uint32(index)
 
+	ctxb := context.Background()
 	stream, err := client.CloseChannel(ctxb, req)
 	if err != nil {
 		return err
@@ -721,7 +730,7 @@ func closeChannel(
 				ClosingTXID: txid.String(),
 			})
 
-			if !ctx.Bool("block") {
+			if !ext.BoolFlag("block") {
 				return nil
 			}
 
@@ -846,10 +855,11 @@ var walletBalanceCommand = cli.Command{
 func walletBalance(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
+	ext := cmd.NewArgExtractor(ctx)
 	ctxb := context.Background()
 
 	req := &lnrpc.WalletBalanceRequest{
-		WitnessOnly: ctx.Bool("witness_only"),
+		WitnessOnly: ext.BoolFlag("witness_only"),
 	}
 	resp, err := client.WalletBalance(ctxb, req)
 	if err != nil {
@@ -1027,8 +1037,10 @@ var sendPaymentCommand = cli.Command{
 func sendPayment(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
+	ext := cmd.NewArgExtractor(ctx)
+
 	// Show command help if no arguments provided
-	if ctx.NArg() == 0 && ctx.NumFlags() == 0 {
+	if !ext.ArgsPresent() {
 		cli.ShowCommandHelp(ctx, "sendpayment")
 		return nil
 	}
@@ -1036,8 +1048,8 @@ func sendPayment(
 	var req *lnrpc.SendRequest
 	if ctx.IsSet("pay_req") {
 		req = &lnrpc.SendRequest{
-			PaymentRequest: ctx.String("pay_req"),
-			Amt:            ctx.Int64("amt"),
+			PaymentRequest: ext.StringFlag("pay_req"),
+			Amt:            ext.Int64Flag("amt"),
 		}
 	} else {
 		ext := cmd.NewArgExtractor(ctx)
@@ -1061,11 +1073,11 @@ func sendPayment(
 			Amt:  amount,
 		}
 
-		if ctx.Bool("debug_send") &&
-			(ctx.IsSet("payment_hash") || ext.PositionalArgsPresent()) {
+		if ext.BoolFlag("debug_send") &&
+			(ext.IsFlagSet("payment_hash") || ext.PositionalArgsPresent()) {
 
 			return ErrUnnecessaryArgumentForDebugSend
-		} else if !ctx.Bool("debug_send") {
+		} else if !ext.BoolFlag("debug_send") {
 			var rHash []byte
 
 			rHash, err = ext.HexArg("payment_hash")
@@ -1156,7 +1168,7 @@ func payInvoice(
 
 	req := &lnrpc.SendRequest{
 		PaymentRequest: payReq,
-		Amt:            ctx.Int64("amt"),
+		Amt:            ext.Int64Flag("amt"),
 	}
 
 	return sendPaymentRequest(ctx, client, writer, req)
@@ -1236,24 +1248,24 @@ func addInvoice(
 		return err
 	}
 
-	descHash, err = hex.DecodeString(ctx.String("description_hash"))
+	descHash, err = hex.DecodeString(ext.StringFlag("description_hash"))
 	if err != nil {
 		return fmt.Errorf("unable to parse description_hash: %v", err)
 	}
 
-	receipt, err = hex.DecodeString(ctx.String("receipt"))
+	receipt, err = hex.DecodeString(ext.StringFlag("receipt"))
 	if err != nil {
 		return fmt.Errorf("unable to parse receipt: %v", err)
 	}
 
 	invoice := &lnrpc.Invoice{
-		Memo:            ctx.String("memo"),
+		Memo:            ext.StringFlag("memo"),
 		Receipt:         receipt,
 		RPreimage:       preimage,
 		Value:           amt,
 		DescriptionHash: descHash,
-		FallbackAddr:    ctx.String("fallback_addr"),
-		Expiry:          ctx.Int64("expiry"),
+		FallbackAddr:    ext.StringFlag("fallback_addr"),
+		Expiry:          ext.Int64Flag("expiry"),
 	}
 
 	resp, err := client.AddInvoice(context.Background(), invoice)
@@ -1325,8 +1337,9 @@ var listInvoicesCommand = cli.Command{
 func listInvoices(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
+	ext := cmd.NewArgExtractor(ctx)
 	req := &lnrpc.ListInvoiceRequest{
-		PendingOnly: ctx.Bool("pending_only"),
+		PendingOnly: ext.BoolFlag("pending_only"),
 	}
 
 	invoices, err := client.ListInvoices(context.Background(), req)
@@ -1363,9 +1376,10 @@ func describeGraph(
 		return err
 	}
 
+	ext := cmd.NewArgExtractor(ctx)
 	// If the draw flag is on, then we'll use the 'dot' command to create a
 	// visualization of the graph itself.
-	if ctx.Bool("render") {
+	if ext.BoolFlag("render") {
 		return drawChannelGraph(graph)
 	}
 
@@ -1675,7 +1689,7 @@ func queryRoutes(
 	req := &lnrpc.QueryRoutesRequest{
 		PubKey:    dest,
 		Amt:       amt,
-		NumRoutes: int32(ctx.Int("num_max_routes")),
+		NumRoutes: int32(ext.Int64Flag("num_max_routes")),
 	}
 
 	route, err := client.QueryRoutes(ctxb, req)
@@ -1734,10 +1748,12 @@ var debugLevelCommand = cli.Command{
 func debugLevel(
 	ctx *cli.Context, client lnrpc.LightningClient, writer io.Writer) error {
 
+	ext := cmd.NewArgExtractor(ctx)
+
 	ctxb := context.Background()
 	req := &lnrpc.DebugLevelRequest{
-		Show:      ctx.Bool("show"),
-		LevelSpec: ctx.String("level"),
+		Show:      ext.BoolFlag("show"),
+		LevelSpec: ext.StringFlag("level"),
 	}
 
 	resp, err := client.DebugLevel(ctxb, req)

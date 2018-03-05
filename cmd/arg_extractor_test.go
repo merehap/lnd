@@ -8,20 +8,80 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestPositionalArgsPresent(t *testing.T) {
-	ctx := createContext(
-		createFlagSet(),
-		[]string{"MyArg"})
+func TestArgsPresent(t *testing.T) {
+	ctx := createContext(createEmptyFlagSet(), []string{"MyArg"})
 	extractor := NewArgExtractor(ctx)
-	require.Equal(t, true, extractor.PositionalArgsPresent())
+	require.Equal(t, true, extractor.ArgsPresent())
+
+	extractor = createStringFlagArgExtractor(
+		"dest", []string{"--dest", "MyDest"})
+	require.Equal(t, true, extractor.ArgsPresent())
+
+	ctx = createContext(createEmptyFlagSet(), []string{})
+	extractor = NewArgExtractor(ctx)
+	require.Equal(t, false, extractor.ArgsPresent())
 }
 
-func TestPositionalArgsPresent_NotPresent(t *testing.T) {
-	ctx := createContext(
-		createFlagSet(),
-		[]string{})
+func TestPositionalArgsPresent(t *testing.T) {
+	ctx := createContext(createEmptyFlagSet(), []string{"MyArg"})
 	extractor := NewArgExtractor(ctx)
+	require.Equal(t, true, extractor.PositionalArgsPresent())
+
+	ctx = createContext(createEmptyFlagSet(), []string{})
+	extractor = NewArgExtractor(ctx)
 	require.Equal(t, false, extractor.PositionalArgsPresent())
+}
+
+func TestIsFlagSet(t *testing.T) {
+	extractor := createStringFlagArgExtractor(
+		"dest", []string{"--dest", "MyDest"})
+	require.Equal(t, true, extractor.IsFlagSet("dest"))
+	require.Equal(t, false, extractor.IsFlagSet("amt"))
+}
+
+func TestStringFlag(t *testing.T) {
+	extractor := createStringFlagArgExtractor(
+		"dest", []string{"--dest", "MyDest"})
+	require.Equal(t, "MyDest", extractor.StringFlag("dest"))
+	require.Equal(t, "", extractor.StringFlag("addr"))
+}
+
+func TestBoolFlag(t *testing.T) {
+	set := createEmptyFlagSet()
+	set.Bool("connect", false, "doc")
+	extractor := NewArgExtractor(createContext(set, []string{"--connect"}))
+
+	require.Equal(t, true, extractor.BoolFlag("connect"))
+	require.Equal(t, false, extractor.BoolFlag("otherflag"))
+}
+
+func TestInt64Flag(t *testing.T) {
+	set := createEmptyFlagSet()
+	set.Int64("amt", 0, "doc")
+	extractor := NewArgExtractor(createContext(set, []string{"--amt", "5"}))
+
+	require.Equal(t, int64(5), extractor.Int64Flag("amt"))
+	require.Equal(t, int64(0), extractor.Int64Flag("otherflag"))
+}
+
+func TestStringPositionalArg(t *testing.T) {
+	extractor := createStringFlagArgExtractor(
+		"dest", []string{"MyDest"})
+	require.Equal(t, 1, len(extractor.args))
+
+	arg, err := extractor.StringPositionalArg("dest")
+	require.NoError(t, err)
+	require.Equal(t, "MyDest", arg)
+	require.Equal(t, 0, len(extractor.args))
+}
+
+func TestStringPositionalArg_Missing(t *testing.T) {
+	extractor := createStringFlagArgExtractor(
+		"dest", []string{})
+	require.Equal(t, 0, len(extractor.args))
+
+	_, err := extractor.StringPositionalArg("dest")
+	require.Error(t, err)
 }
 
 func TestStringArg_PositionalArg(t *testing.T) {
@@ -262,14 +322,14 @@ func verifyInvalidTypedArgsWithDefault(
 func createStringFlagArgExtractor(
 	flagName string, args []string) ArgExtractor {
 
-	set := createFlagSet()
+	set := createEmptyFlagSet()
 	set.String(flagName, "", "doc")
 	return NewArgExtractor(createContext(set, args))
 }
 
 // An ArgExtractor for testing every type of flag at the same type.
 func createMultiArgExtractor(args []string) ArgExtractor {
-	set := createFlagSet()
+	set := createEmptyFlagSet()
 	// Use all strings since we don't use the cli library to handle types.
 	set.String("string_arg", "", "doc")
 	set.String("hex_arg", "", "doc")
@@ -284,6 +344,6 @@ func createContext(set *flag.FlagSet, args []string) *cli.Context {
 	return ctx
 }
 
-func createFlagSet() *flag.FlagSet {
+func createEmptyFlagSet() *flag.FlagSet {
 	return flag.NewFlagSet("test", 0)
 }

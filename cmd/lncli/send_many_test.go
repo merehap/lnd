@@ -4,6 +4,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/lightningnetwork/lnd/cmd"
 	"github.com/lightningnetwork/lnd/lnrpc"
 )
 
@@ -35,9 +36,9 @@ func TestSendMany_SatPerByte(t *testing.T) {
 }
 
 func TestSendMany_NoArgs(t *testing.T) {
-	TestCommandTextInValidationError(t, runSendMany,
+	TestCommandValidationError(t, runSendMany,
 		[]string{},
-		"unexpected end of JSON input")
+		&cmd.MissingArgError{"JSON Map"})
 }
 
 func TestSendMany_BadJSON(t *testing.T) {

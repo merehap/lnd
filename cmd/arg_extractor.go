@@ -10,6 +10,7 @@ import (
 
 // ArgExtractor allows processing of positional and flag arguments
 // in a unified manner and manages the state of arguments consumed.
+// Arg (or argument) is the term that covers both flags and positionals.
 type ArgExtractor struct {
 	ctx  *cli.Context
 	args cli.Args
@@ -20,10 +21,49 @@ func NewArgExtractor(ctx *cli.Context) ArgExtractor {
 	return ArgExtractor{ctx, ctx.Args()}
 }
 
+// ArgsPresent returns true if there are any flags or positional args set.
+func (e *ArgExtractor) ArgsPresent() bool {
+	return e.args.Present() || e.ctx.NumFlags() > 0
+}
+
 // PositionalArgsPresent returns true if there are any positional args left
 // to consume.
 func (e *ArgExtractor) PositionalArgsPresent() bool {
 	return e.args.Present()
+}
+
+// IsFlagSet returns true if a flag of the specified name is set.
+func (e *ArgExtractor) IsFlagSet(flagName string) bool {
+	return e.ctx.IsSet(flagName)
+}
+
+// StringFlag returns the string value of the flag with the specified name.
+func (e *ArgExtractor) StringFlag(argName string) string {
+	return e.ctx.String(argName)
+}
+
+// BoolFlag returns the bool value of the flag with the specified name.
+func (e *ArgExtractor) BoolFlag(argName string) bool {
+	return e.ctx.Bool(argName)
+}
+
+// Int64Flag returns the int64 value of the flag with the specified name.
+func (e *ArgExtractor) Int64Flag(argName string) int64 {
+	return e.ctx.Int64(argName)
+}
+
+// StringPositionalArg consumes a single positional arg,
+// returns a MissingArgError if one isn't present.
+func (e *ArgExtractor) StringPositionalArg(argName string) (string, error) {
+	if !e.args.Present() {
+		return "", &MissingArgError{argName}
+	}
+
+	value := e.args.First()
+	// Remove the positional argument that was just used.
+	e.args = e.args.Tail()
+
+	return value, nil
 }
 
 // StringArg extracts a single flag of the specified name,
