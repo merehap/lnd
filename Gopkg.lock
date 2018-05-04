@@ -175,6 +175,12 @@
   revision = "79bfde677fa81ff8d27c4330c35bda075d360641"
 
 [[projects]]
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/roasbeef/btcd"
   packages = [
     "addrmgr",
@@ -232,6 +238,15 @@
   name = "github.com/rogpeppe/fastuuid"
   packages = ["."]
   revision = "6724a57986aff9bff1a1770e9347036def7c89f6"
+
+[[projects]]
+  name = "github.com/stretchr/testify"
+  packages = [
+    "assert",
+    "require"
+  ]
+  revision = "69483b4bd14f5845b5a1e55bca19e954e827f1d0"
+  version = "v1.1.4"
 
 [[projects]]
   name = "github.com/tv42/zbase32"
@@ -359,6 +374,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "7edcc418d8e2f483001838e05dc77e3fe613273418f8ddf7efd5cee6df68c6a8"
+  inputs-digest = "0a3d3988f67aea4a0eb345a21a5fe6e0006116a39a1cc1885bcec19b8ceceb03"
   solver-name = "gps-cdcl"
   solver-version = 1
