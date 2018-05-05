@@ -274,7 +274,7 @@ func (c *ChainArbitrator) resolveContract(chanPoint wire.OutPoint,
 
 	log.Infof("Marking ChannelPoint(%v) fully resolved", chanPoint)
 
-	// First, we'll we'll mark the channel as fully closed from the PoV of
+	// First, we'll mark the channel as fully closed from the PoV of
 	// the channel source.
 	err := c.chanSource.MarkChanFullyClosed(&chanPoint)
 	if err != nil {

@@ -201,6 +201,22 @@ func (db *DB) FetchAllLinkNodes() ([]*LinkNode, error) {
 	return linkNodes, nil
 }
 
+// DeleteLinkNode attempts to delete the data for a LinkNode based on a target
+// identity public key.
+func (db *DB) DeleteLinkNode(identity *btcec.PublicKey) error {
+	return db.Update(func(tx *bolt.Tx) error {
+		// First fetch the bucket for storing node metadata, bailing
+		// out early if it hasn't been created yet.
+		nodeMetaBucket := tx.Bucket(nodeInfoBucket)
+		if nodeMetaBucket == nil {
+			return ErrLinkNodesNotFound
+		}
+
+		pubKey := identity.SerializeCompressed()
+		return nodeMetaBucket.Delete(pubKey)
+	})
+}
+
 func serializeLinkNode(w io.Writer, l *LinkNode) error {
 	var buf [8]byte
 

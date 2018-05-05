@@ -8,7 +8,64 @@ import (
 
 	"github.com/roasbeef/btcd/btcec"
 	"github.com/roasbeef/btcd/wire"
+	"github.com/stretchr/testify/require"
+	"github.com/coreos/bbolt"
 )
+
+// TestDeleteLinkNode verifies that deletion works (after a test LinkNode
+// is setup).
+func TestDeleteLinkNode(t *testing.T) {
+	cdb, cleanUp, err := makeTestDB()
+	if err != nil {
+		t.Fatalf("unable to make test database: %v", err)
+	}
+	defer cleanUp()
+
+	_, pubKey := btcec.PrivKeyFromBytes(btcec.S256(), key[:])
+	addr := &net.TCPAddr{
+		IP:   net.ParseIP("55.55.55.55"),
+		Port: 18556,
+	}
+
+	// Setup the db with a test LinkNode so we can actually verify deletion.
+	var bucket *bolt.Bucket
+	cdb.Update(func(tx *bolt.Tx) error {
+		bucket = tx.Bucket(nodeInfoBucket)
+		putLinkNode(bucket, cdb.NewLinkNode(wire.MainNet, pubKey, addr))
+		return nil
+	})
+
+	// Verify that our testdata is setup correctly.
+	_, err = cdb.FetchLinkNode(pubKey)
+	require.NoError(t, err)
+
+	err = cdb.DeleteLinkNode(pubKey)
+	require.NoError(t, err)
+
+	// Verify that the test data was deleted.
+	_, err = cdb.FetchLinkNode(pubKey)
+	require.Error(t, err)
+	require.Equal(t, ErrNodeNotFound.Error(), err.Error())
+}
+
+// TestDeleteLinkNode_MissingBucket verifies that an error occurs if
+// the node info bucket isn't present.
+func TestDeleteLinkNode_MissingBucket(t *testing.T) {
+	cdb, cleanUp, err := makeTestDB()
+	if err != nil {
+		t.Fatalf("unable to make test database: %v", err)
+	}
+	defer cleanUp()
+
+	// Delete the bucket that is setup by default.
+	cdb.Update(func(tx *bolt.Tx) error {
+		return tx.DeleteBucket(nodeInfoBucket)
+	})
+
+	_, pubKey := btcec.PrivKeyFromBytes(btcec.S256(), key[:])
+	err = cdb.DeleteLinkNode(pubKey)
+	require.Error(t, err)
+}
 
 func TestLinkNodeEncodeDecode(t *testing.T) {
 	t.Parallel()
